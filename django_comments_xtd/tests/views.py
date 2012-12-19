@@ -198,21 +198,22 @@ class ReplyCommentTestCase(TestCase):
 
 
 class CommentsForObjectViewTestCase(TestCase):
-    def test_get(self):
-        article = Article.objects.create()
+    def setUp(self):
+        self.article = Article.objects.create()
         article1 = Article.objects.create()
 
-        XtdComment.objects.create(content_object=article, site_id=1,
+        XtdComment.objects.create(content_object=self.article, site_id=1,
                                   comment="Hi", submit_date="2012-12-12")
-        XtdComment.objects.create(content_object=article, site_id=1,
+        XtdComment.objects.create(content_object=self.article, site_id=1,
                                   comment="Hi 1", submit_date="2012-12-12")
 
         XtdComment.objects.create(content_object=article1, site_id=1,
                                   comment="Bye", submit_date="2012-12-12")
-
+        
+    def test_get(self):
         response = self.client.get(reverse(
             "comments-xtd-last-for-object",
-            kwargs={'count': 5, 'id': article.id, 'app_model':
+            kwargs={'count': 5, 'id': self.article.id, 'app_model':
                     'tests.article'})
         )
 
@@ -232,20 +233,9 @@ class CommentsForObjectViewTestCase(TestCase):
         self.assertHTMLEqual(expected_html, response.content)
 
     def test_get__reverse(self):
-        article = Article.objects.create()
-        article1 = Article.objects.create()
-
-        XtdComment.objects.create(content_object=article, site_id=1,
-                                  comment="Hi", submit_date="2012-12-12")
-        XtdComment.objects.create(content_object=article, site_id=1,
-                                  comment="Hi 1", submit_date="2012-12-12")
-
-        XtdComment.objects.create(content_object=article1, site_id=1,
-                                  comment="Bye", submit_date="2012-12-12")
-
         response = self.client.get(reverse(
             "comments-xtd-last-for-object",
-            kwargs={'count': 5, 'id': article.id, 'app_model':
+            kwargs={'count': 5, 'id': self.article.id, 'app_model':
                     'tests.article'}), {'reverse': None}
         )
 
@@ -265,24 +255,14 @@ class CommentsForObjectViewTestCase(TestCase):
 
         self.assertHTMLEqual(expected_html, response.content)
 
-
     def test_get__reverse__regresion(self):
-        article = Article.objects.create()
-        article1 = Article.objects.create()
-
-        XtdComment.objects.create(content_object=article, site_id=1,
-                                  comment="Hi", submit_date="2012-12-12")
-        XtdComment.objects.create(content_object=article, site_id=1,
-                                  comment="Hi 1", submit_date="2012-12-12")
-        XtdComment.objects.create(content_object=article, site_id=1,
+        self.maxDiff = None
+        XtdComment.objects.create(content_object=self.article, site_id=1,
                                   comment="Hi 2", submit_date="2012-12-12")
-
-        XtdComment.objects.create(content_object=article1, site_id=1,
-                                  comment="Bye", submit_date="2012-12-12")
 
         response = self.client.get(reverse(
             "comments-xtd-last-for-object",
-            kwargs={'count': 2, 'id': article.id, 'app_model':
+            kwargs={'count': 2, 'id': self.article.id, 'app_model':
                     'tests.article'}), {'reverse': None}
         )
 
@@ -292,11 +272,11 @@ class CommentsForObjectViewTestCase(TestCase):
         <div style="display:inline-block; width:180px; padding: 0 5px; background:#eee">
         <a href="/comments/cr/10/1/#c2">permalink</a><br/><span>12/12/2012</span><br/>
         <em></em></div></div>
-        <div id="c3" style="width:600px; padding: 5px 0; border-top: 1px solid #ddd">
+        <div id="c4" style="width:600px; padding: 5px 0; border-top: 1px solid #ddd">
         <div style="display:inline-block; width:400px"><div style="font-size:0.7em">
         Comment for: <a href=""></a></div><p>Hi 2</p></div>
         <div style="display:inline-block; width:180px; padding: 0 5px; background:#eee">
-        <a href="/comments/cr/10/1/#c3">permalink</a><br/><span>12/12/2012</span><br/>
+        <a href="/comments/cr/10/1/#c4">permalink</a><br/><span>12/12/2012</span><br/>
         <em></em></div></div>
         '''
 
