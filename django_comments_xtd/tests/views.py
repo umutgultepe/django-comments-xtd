@@ -230,3 +230,36 @@ class CommentsForObjectViewTestCase(TestCase):
         <em></em></div></div>'''
 
         self.assertHTMLEqual(expected_html, response.content)
+
+    def test_get__reverse(self):
+        article = Article.objects.create()
+        article1 = Article.objects.create()
+
+        XtdComment.objects.create(content_object=article, site_id=1,
+                                  comment="Hi", submit_date="2012-12-12")
+        XtdComment.objects.create(content_object=article, site_id=1,
+                                  comment="Hi 1", submit_date="2012-12-12")
+
+        XtdComment.objects.create(content_object=article1, site_id=1,
+                                  comment="Bye", submit_date="2012-12-12")
+
+        response = self.client.get(reverse(
+            "comments-xtd-last-for-object",
+            kwargs={'count': 5, 'id': article.id, 'app_model':
+                    'tests.article'}), {'reverse': None}
+        )
+
+        expected_html = '''<div id="c1" style="width:600px; padding: 5px 0; border-top: 1px solid #ddd">
+        <div style="display:inline-block; width:400px"><div style="font-size:0.7em">
+        Comment for: <a href=""></a></div><p>Hi</p></div>
+        <div style="display:inline-block; width:180px; padding: 0 5px; background:#eee">
+        <a href="/comments/cr/10/1/#c1">permalink</a><br/><span>12/12/2012</span><br/>
+        <em></em></div></div>
+        <div id="c2" style="width:600px; padding: 5px 0; border-top: 1px solid #ddd">
+        <div style="display:inline-block; width:400px"><div style="font-size:0.7em">
+        Comment for: <a href=""></a></div><p>Hi 1</p></div>
+        <div style="display:inline-block; width:180px; padding: 0 5px; background:#eee">
+        <a href="/comments/cr/10/1/#c2">permalink</a><br/><span>12/12/2012</span><br/>
+        <em></em></div></div>'''
+
+        self.assertHTMLEqual(expected_html, response.content)

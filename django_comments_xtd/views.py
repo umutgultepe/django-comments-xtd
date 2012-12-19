@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.comments import get_form
 from django.contrib.comments.signals import comment_was_posted
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
 from django.core.urlresolvers import reverse
 from django.http import Http404, HttpResponse, HttpResponseRedirect
@@ -193,11 +194,13 @@ def reply(request, cid):
 
 
 def last_for_object(request, count, id, app_model):
-    from django.contrib.contenttypes.models import ContentType
+    reverse = request.GET.get('reverse', False)
     app, model = app_model.split('.')
     contenttype = ContentType.objects.get_by_natural_key(app, model)
     qs = XtdComment.objects.for_content_types(
         [contenttype]).filter(object_pk=id)[:count]
+    if reverse:
+        qs = qs.reverse()
 
     template_arg = [
         "django_comments_xtd/%s/%s/comment.html" % (
