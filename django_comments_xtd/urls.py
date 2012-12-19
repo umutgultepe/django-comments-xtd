@@ -12,6 +12,9 @@ urlpatterns = patterns('',
     url(r'', include("django.contrib.comments.urls")),
     url(r'^sent/$',                  views.sent,    name='comments-xtd-sent'),
     url(r'^confirm/(?P<key>[^/]+)$', views.confirm, name='comments-xtd-confirm'),
+    url(r'^last_xtd_comments/(?P<id>[\d]+)/(?P<app_model>[\w]+\.[\w]+)/$',
+        views.render_last_xtd_comments,
+        name='last-xtdcomments'),
 )
 
 if allow_comment_threads:

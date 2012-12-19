@@ -4,9 +4,9 @@ from django.contrib.comments import get_form
 from django.contrib.comments.signals import comment_was_posted
 from django.contrib.sites.models import Site
 from django.core.urlresolvers import reverse
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render_to_response
-from django.template import loader, Context, RequestContext
+from django.template import loader, Context, RequestContext, Template
 from django.utils.translation import ugettext_lazy as _
 
 from django_comments_xtd import signals, signed
@@ -190,3 +190,14 @@ def reply(request, cid):
     return render_to_response(template_arg, 
                               {"comment": comment, "form": form, "next": next },
                               context_instance=RequestContext(request))
+
+
+def render_last_xtd_comments(request, id, app_model):
+    context = Context()
+    template_string = """
+    {%% load render_last_xtdcomments from comments_xtd %%}
+    {%% render_last_xtdcomments %s for %s %%}
+    """ % (id, app_model)
+
+    t = Template(template_string)
+    return HttpResponse(t.render(context))
