@@ -4,8 +4,8 @@ from django.contrib.comments import get_form
 from django.contrib.comments.signals import comment_was_posted
 from django.contrib.sites.models import Site
 from django.core.urlresolvers import reverse
-from django.http import Http404, HttpResponseRedirect
-from django.shortcuts import redirect, render_to_response
+from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render_to_response
 from django.template import loader, Context, RequestContext
 from django.utils.translation import ugettext_lazy as _
 
@@ -190,3 +190,27 @@ def reply(request, cid):
     return render_to_response(template_arg, 
                               {"comment": comment, "form": form, "next": next },
                               context_instance=RequestContext(request))
+
+
+def last_for_object(request, count, id, app_model):
+    from django.contrib.contenttypes.models import ContentType
+    app, model = app_model.split('.')
+    contenttype = ContentType.objects.get_by_natural_key(app, model)
+    qs = XtdComment.objects.for_content_types(
+        [contenttype]).filter(id=id)[:count]
+
+    template_arg = [
+        "django_comments_xtd/%s/%s/comment.html" % (
+            contenttype.app_label,
+            contenttype.model),
+        "django_comments_xtd/%s/comment.html" % (
+            contenttype.app_label,),
+        "django_comments_xtd/comment.html"
+    ]
+    strlist = []
+    for xtd_comment in qs:
+        strlist.append(
+            loader.render_to_string(
+                template_arg, {"comment": xtd_comment}))
+
+    return HttpResponse(''.join(strlist))
