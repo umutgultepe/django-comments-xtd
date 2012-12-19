@@ -200,7 +200,8 @@ def last_for_object(request, count, id, app_model):
     qs = XtdComment.objects.for_content_types(
         [contenttype]).filter(object_pk=id)[:count]
     if reverse:
-        qs = qs.reverse()
+        qs = list(qs)
+        qs.reverse()
 
     template_arg = [
         "django_comments_xtd/%s/%s/comment.html" % (
