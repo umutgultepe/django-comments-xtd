@@ -197,7 +197,7 @@ def last_for_object(request, count, id, app_model):
     app, model = app_model.split('.')
     contenttype = ContentType.objects.get_by_natural_key(app, model)
     qs = XtdComment.objects.for_content_types(
-        [contenttype]).filter(id=id)[:count]
+        [contenttype]).filter(object_pk=id)[:count]
 
     template_arg = [
         "django_comments_xtd/%s/%s/comment.html" % (
