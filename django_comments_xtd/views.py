@@ -215,6 +215,7 @@ def last_for_object(request, count, id, app_model):
     for xtd_comment in qs:
         strlist.append(
             loader.render_to_string(
-                template_arg, {"comment": xtd_comment}))
+                template_arg, {"comment": xtd_comment},
+                context_instance=RequestContext(request)))
 
     return HttpResponse(''.join(strlist))
