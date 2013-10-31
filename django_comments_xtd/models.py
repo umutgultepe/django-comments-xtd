@@ -100,6 +100,77 @@ class XtdComment(Comment):
         else:
             return False
 
+    def get_item_new_comment_context(self):
+        user = self.user
+        item = self.content_object
+        if item is None:
+            return
+        
+        if self.content_object.__class__._meta.object_name == "Picture":
+            item_type = 1
+            url_item = 'picture'
+        else:
+            item_type = 2
+            url_item = 'video'
+    
+        domain = 'eversnapapp.com'
+        eversnap_url = getattr(settings, 'EVERSNAP_DOMAIN', 'http://eversnapapp.com')
+        mwa_user = self.user
+       
+        content = {
+            'userId': str(mwa_user.id),
+            'itemType': str(item_type),
+            'itemId': str(item.id),
+            'thumbUrl': item.image_thumb.url if item_type == 1 else item.thumb,
+            'userName': mwa_user.get_full_name() or 'someone',
+            'albumTitle': item.album.title or '',
+            'albumId': str(item.album.id),
+            'ios_type': 'APNS_COMMENT_USER',
+            'android_type': '12',
+            'site_domain': domain,
+            'url': eversnap_url + '/' + url_item + '/' + str(item.id),
+        }
+        return content
+    
+    get_item_new_comment_member_context = get_item_new_comment_context
+        
+    @classmethod
+    def get_notification_context(cls, notification_type, instance=None, objects=[]):
+        if instance is not None:
+            obj = instance
+        else:
+            obj = objects[0]
+        method_name = "get_%s_context" % notification_type
+        context = getattr(obj, method_name)()
+        if instance is not None:
+            return context
+        object_count = len(objects)
+        mob_index = min(object_count, 4)
+        context['ios_type'] = settings.MOB_TYPES[notification_type][mob_index]['ios']
+        context['android_type'] = settings.MOB_TYPES[notification_type][mob_index]['android']
+        if object_count > 1:
+            user = objects[1].user
+            context["userName2"] = context["userName"]
+            context["userName"] = (user.firstName or '') + (' ' + user.lastName if user.lastName else '')
+            context["thumbUrl"] = getattr(objects[-1], method_name)()["thumbUrl"]
+        else:
+            return context
+        if object_count == 2:
+            return context
+        elif object_count == 3:
+            user = objects[2].user
+            context["userName3"] = context["userName2"]
+            context["userName2"] = context["userName"]
+            context["userName"] = (user.firstName or '') + (' ' + user.lastName if user.lastName else '')
+        else:
+            user = objects[-2].user
+            context["userName2"] = (user.firstName or '') + (' ' + user.lastName if user.lastName else '')
+            user = objects[-1].user
+            context["userName"] = (user.firstName or '') + (' ' + user.lastName if user.lastName else '')
+            context["totalUsers"] = object_count - 1
+        return context
+    
+
 class DummyDefaultManager:
     """
     Dummy Manager to mock django's CommentForm.check_for_duplicate method.
