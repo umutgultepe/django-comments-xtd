@@ -7,7 +7,7 @@ from django.db import models, transaction
 from django.db.models import F, Max, Min
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy as _
-
+from django.contrib.auth import get_user_model 
 MAX_THREAD_LEVEL = getattr(settings, 'COMMENTS_XTD_MAX_THREAD_LEVEL', 0)
 MAX_THREAD_LEVEL_BY_APP_MODEL = getattr(settings, 'COMMENTS_XTD_MAX_THREAD_LEVEL_BY_APP_MODEL', {})
 
@@ -171,6 +171,75 @@ class XtdComment(Comment):
             context["totalUsers"] = object_count - 1
         return context
 
+    def get_user_status(self, user, privacy, album_owner_id):
+        status = "user"
+        if user.id == settings.ANONYMOUS_USER_ID or user is None:
+            status = "guest"
+        elif album_owner_id == user.id or user.id == self.user_id:
+            status = "owner"
+        # One query here
+        elif JoinMember.objects.filter(user_id=user.id, album_id=self.album_id, active=True).exists():
+            status = "member"
+        return status
+
+    def get_like_list(self, user, skip_permission_check=False):
+        from myproject.like.models import Like
+        """
+        Get a list of likes for this comment. If the user has no read permission, get None.
+        @user: The user whose point of view will be used when fetching likes.
+        @skip_permission_check: If you already checked the permissions, set this to True in order
+        to avoid a redundant database call.
+        
+        This method builds the like list manually, meaning likes themselves are not cached. Therefore
+        there might be a lot of cache calls in this method. Change it if it effects performance.
+        """
+        if not skip_permission_check:
+            item_cache_key = "_%s_dict_%s_" % (self.content_type.model_class().item_name, "%s")
+            object_dict = get_dictionary_with_cache_priority(
+                item_cache_key,
+                self.content_type.model_class(),
+                self.object_pk,
+                "get_short_dict"
+            )
+            album_dict = get_dictionary_with_cache_priority(
+                "_album_dict_%d_",
+                "mwa.Album",
+                object_dict["album_id"],
+                "get_short_dict"
+            )
+            privacy = album_dict.pop("privacy")
+            # If the user is not the owner or anonymous, this method launches a query
+            status = self.get_user_status(user, privacy, album_dict["owner_id"])
+            if privacy[status] & settings.PERMISSIONS["read"] == 0:
+                # User cannot read this item, return None
+                return False
+        # one query here
+        likes = Like.objects.filter(
+            resource_type=3,
+            resource_id=self.pk,
+        ).only("id", "user")
+        item_dict = {
+            "type": 3,
+            "id": self.id,
+            "owner_id": self.user_id
+        }
+        like_list = []
+        for l in likes:
+            liker_dict = get_dictionary_with_cache_priority(
+                "_user_%d_owner_dict_",
+                get_user_model(),
+                l.user_id,
+                "get_owner_dict"
+            )
+            t_dict = {
+                "user": liker_dict,
+                "item": item_dict,
+                "id": l.id,
+                "can_delete": user.id == l.user_id
+            }
+            like_list.append(t_dict)
+        return like_list
+        
 
     def get_owner_dict(self, update=False):
         """ Get a small dictionary with information of this comment's owner. Uses and sets
