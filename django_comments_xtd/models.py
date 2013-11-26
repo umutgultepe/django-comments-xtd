@@ -1,11 +1,12 @@
-from django.db import models, transaction
-from django.db.models import F, Max, Min
+from myproject.utils import get_dictionary_with_cache_priority
 from django.conf import settings
 from django.contrib.comments.models import Comment
 from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
+from django.db import models, transaction
+from django.db.models import F, Max, Min
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy as _
-
 
 MAX_THREAD_LEVEL = getattr(settings, 'COMMENTS_XTD_MAX_THREAD_LEVEL', 0)
 MAX_THREAD_LEVEL_BY_APP_MODEL = getattr(settings, 'COMMENTS_XTD_MAX_THREAD_LEVEL_BY_APP_MODEL', {})
@@ -169,7 +170,83 @@ class XtdComment(Comment):
             context["userName"] = (user.firstName or '') + (' ' + user.lastName if user.lastName else '')
             context["totalUsers"] = object_count - 1
         return context
+
+
+    def get_owner_dict(self, update=False):
+        """ Get a small dictionary with information of this comment's owner. Uses and sets
+        _user_<user_id>_owner_dict_. """
+        if not update:  # Try to get from cache first, without hitting database
+            d = cache.get("_user_%d_owner_dict_" % self.user_id)
+            if d is not None:
+                return d
+        return self.user.get_owner_dict(True)
+
+    def get_likes_count(self, update=False):
+        """ Get the number of likes for this comment, with priority on cache"""
+        key_name = "_num_likes_for_comment_%d_" % self.pk
+        if not update:
+            n = cache.get(key_name)
+            if n is not None:
+                return n
+        from myproject.like.models import Like
+        n = Like.objects.filter(resource_type=3, resource_id=self.pk).count()
+        cache.set(key_name, n)
+        return n    
     
+    def build_short_dict(self):
+        """ Build the short dict. If everything is working, this method should not make a single
+        database call."""
+        item_cache_key = "_%s_dict_%s_" % (self.content_type.model_class().item_name, "%s")
+        object_dict = get_dictionary_with_cache_priority(
+            item_cache_key,
+            self.content_type.model_class(),
+            self.object_pk,
+            "get_short_dict"
+        )
+        album_cache_key = "_album_dict_%s_"
+        album_dict = get_dictionary_with_cache_priority(
+            album_cache_key,
+            "mwa.Album",
+            object_dict["album_id"],
+            "get_short_dict"
+        )
+        return {
+            "comment": self.comment,
+            "id": self.id,
+            "likes_count": self.get_likes_count(),
+            "object": {
+                "id": self.object_pk,
+                "type": self.content_type.model_class().item_type,
+                "owner_id": object_dict["owner_id"]
+            },
+            "submit_date": self.submit_date.isoformat(),
+            "user": self.get_owner_dict(),
+            "album": {
+                "id": album_dict["id"],
+                "owner_id": album_dict["owner_id"],
+            }
+        }
+
+    def get_short_dict(self, update=False):
+        """ Get the short dict for this comment with key fields, priority on cache"""
+        key_name = "_comment_dict_%d_" % self.pk
+        if not update:
+            d = cache.get(key_name)
+            if d is not None:
+                return d
+        d = self.build_short_dict()
+        cache.set(key_name, d)
+        return d
+    
+    def get_long_dict(self, user):
+        base_dict = self.get_short_dict()
+        who_can_delete = [
+            unicode(base_dict["user"]["id"]),
+            unicode(base_dict["object"]["owner_id"]),
+            unicode(base_dict["album"]["owner_id"]),
+        ]
+        base_dict["can_delete"] = unicode(user.id) in who_can_delete
+        return base_dict
 
 class DummyDefaultManager:
     """
