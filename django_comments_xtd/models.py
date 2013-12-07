@@ -229,7 +229,8 @@ class XtdComment(Comment):
                 "_user_%d_owner_dict_",
                 get_user_model(),
                 l.user_id,
-                "get_owner_dict"
+                "get_owner_dict",
+                expected_field_list=["first_name", "last_name"]
             )
             t_dict = {
                 "user": liker_dict,
@@ -246,7 +247,7 @@ class XtdComment(Comment):
         _user_<user_id>_owner_dict_. """
         if not update:  # Try to get from cache first, without hitting database
             d = cache.get("_user_%d_owner_dict_" % self.user_id)
-            if d is not None:
+            if d is not None and "first_name" in d:
                 return d
         return self.user.get_owner_dict(True)
 
